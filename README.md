@@ -1,2 +1,7 @@
-# digital_synth
-i make synth
+# DIGITAL_SYNTH
+
+# LIBRARIES
+
+PortAudio
+
+Some Sound card
