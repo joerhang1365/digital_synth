@@ -1,10 +1,10 @@
 #include <linux/soundcard.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <stdio.h>
 
-#define MIDI_DEVICE "/dev/sequencer"
+#define MIDI_DEVICE "/dev/snd/seq"
 
 int main (void)
 {
@@ -28,7 +28,10 @@ int main (void)
     {
       printf("received MIDI byte: %d\n", inpacket[1]);
     }
+
+    usleep(1000);
   }
 
+  close (seqfd);
   return 0;
 }
