@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "portaudio.h"
+#include "midi.h"
 
 #define SAMPLE_RATE 44100
 #define SAMPLE_RATE_INVERSE (double) 1 / SAMPLE_RATE
@@ -71,11 +72,11 @@ static void printSupportedStandardSampleRates(const PaStreamParameters *input_pa
 /* calculate hertz for each note
  * note A is notes[48] which is 440 hertz
  */
-void notesInit()
+void notesInit(const double reference_pitch, const int offset)
 {
   for (int i = 0; i < NOTES_NUM; i++)
   {
-    notes[i] = 440.0f * pow(2.0f, (i - 48) / 12.0f);
+    notes[i] = reference_pitch * pow(2.0f, (i - offset) / 12.0f);
   }
 }
 
@@ -110,7 +111,7 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
     }
     else if (data->type == SQUARE)
     {
-      *(out++) = sin(data->left_phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
+      *(out++) = sin(data->left_phase >= 0) ? 1.0f * data->amplitude : -1.0f * data->amplitude;
       *(out++) = sin(data->right_phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
 
       data->left_phase += M_PI_2 * data->frequency * SAMPLE_RATE_INVERSE;
@@ -130,20 +131,20 @@ static int paCallback(const void *inputBuffer, void *outputBuffer,
       if (data->right_phase >= 1.0f) data->right_phase -= 2.0f;
     }
     
-    printf("%f/n", *out);
+    //printf("%f\n", *out);
   }
 
   return paContinue;
 }
 
-static void endProgram(int type)
+static void endProgram(const int type)
 {
   Pa_Terminate();
 
   exit(type);
 }
 
-static void paCheckError(PaError err)
+static void paCheckError(const PaError err)
 {
   if (err != paNoError)
   {
@@ -241,14 +242,14 @@ int main(int argc, char** argv)
   device_info = Pa_GetDeviceInfo(user_device);
 
   /* set input and output parameters */
-  memset(&input_parameters, 0, sizeof(input_parameters));
+  //memset(&input_parameters, 0, sizeof(input_parameters));
   input_parameters.channelCount = device_info->maxInputChannels;
   input_parameters.device = user_device;
   input_parameters.hostApiSpecificStreamInfo = NULL;
   input_parameters.sampleFormat = paFloat32;
   input_parameters.suggestedLatency = device_info->defaultLowInputLatency;
 
-  memset(&output_parameters, 0, sizeof(output_parameters));
+  //memset(&output_parameters, 0, sizeof(output_parameters));
   output_parameters.channelCount = device_info->maxInputChannels; 
   output_parameters.device = user_device;
   output_parameters.hostApiSpecificStreamInfo = NULL;
@@ -289,19 +290,24 @@ int main(int argc, char** argv)
   error = Pa_StartStream(stream);
   paCheckError(error);
 
-  notesInit(); 
+  notesInit(440.0f, 51); 
 
   /* initialize wave_data */
-  data.type = SQUARE;
-  data.frequency = notes[48]; /* A4 index 48*/
-  data.amplitude = 1.0f;
+  data.type = SINE;
+  data.frequency = notes[48]; /* C4 index 48*/
+  data.amplitude = 0.1f;
   data.left_phase = 0.0f;
   data.right_phase = 0.0f;
-  data.phase_offset = 0.00f; 
+  data.phase_offset = 0.0f;
+
+  midiInit();
 
   /* start of program loop */
   while (1)
-  { 
+  {
+    midi_data midi_data = getMidiData();
+    data.frequency = notes[midi_data.note];
+
     Pa_Sleep(PA_SLEEP_DURATION);
   }
 
@@ -312,6 +318,5 @@ int main(int argc, char** argv)
 
   error = Pa_CloseStream(stream);
   paCheckError(error);
-
   endProgram(EXIT_SUCCESS);
 }
