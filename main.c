@@ -3,35 +3,12 @@
 #include <string.h>
 #include <math.h>
 #include "portaudio.h"
+#include "globals.h"
+#include "oscillator.h"
+#include "notes.h"
 #include "midi.h"
 
-#define SAMPLE_RATE 44100
-#define SAMPLE_RATE_INVERSE (double) 1 / SAMPLE_RATE
-#define CHANNEL_COUNT 2 /* stereo */
-#define FRAMES_PER_BUFFER 64 /* the number of sample frames per callback */
 #define PA_SLEEP_DURATION FRAMES_PER_BUFFER * SAMPLE_RATE_INVERSE * 1000
-#ifndef M_PI
-#define M_PI 3.14159265
-#endif
-#ifndef M_PI_2
-#define M_PI_2 M_PI * 2
-#endif
-#define NOTES_NUM 88
-
-enum wave_type { SINE, SQUARE, SAWTOOTH };
-
-typedef struct
-{
-  enum wave_type type;
-  double left_phase;
-  double right_phase;
-  double phase_offset;
-  double frequency;
-  double amplitude;
-} 
-wave_data;
-
-static double notes[NOTES_NUM];
 
 static void printSupportedStandardSampleRates(const PaStreamParameters *input_parameters,
                                               const PaStreamParameters *output_parameters)
@@ -69,69 +46,29 @@ static void printSupportedStandardSampleRates(const PaStreamParameters *input_pa
   else printf("\n");
 }
 
-/* calculate hertz for each note
- * note A is notes[48] which is 440 hertz
- */
-void notesInit(const double reference_pitch, const int offset)
-{
-  for (int i = 0; i < NOTES_NUM; i++)
-  {
-    notes[i] = reference_pitch * pow(2.0f, (i - offset) / 12.0f);
-  }
-}
-
 /* This routine will be called by the PortAudio engine when audio is needed.
  * It may called at interrupt level on some machines so don't do anything
  * that could mess up the system like calling malloc() or free().
-*/ 
-static int paCallback(const void *inputBuffer, void *outputBuffer,
-                      unsigned long framesPerBuffer,
-                      const PaStreamCallbackTimeInfo* timeInfo,
-                      PaStreamCallbackFlags statusFlags,
-                      void *userData )
+ */
+static int paCallback(const void *input_buffer, void *output_buffer,
+                      unsigned long frames_per_buffer,
+                      const PaStreamCallbackTimeInfo* time_info,
+                      PaStreamCallbackFlags status_flags,
+                      void *user_data )
 {
   /* create variables with set types */
-  wave_data *data = (wave_data*) userData;
-  float *out = (float*) outputBuffer;
-  (void) timeInfo; /* Prevent unused variable warning */
-  (void) statusFlags;
-  (void) inputBuffer;
+  wave *data = (wave*) user_data;
+  float *out = (float*) output_buffer;
+  (void) time_info; /* Prevent unused variable warning */
+  (void) status_flags;
+  (void) input_buffer;
     
-  for(unsigned int i = 0; i < framesPerBuffer; i++)
+  for(unsigned int i = 0; i < frames_per_buffer; i++)
   {
-    if (data->type == SINE)
-    {
-      *(out++) = sin(data->left_phase) * data->amplitude; /* left */
-      *(out++) = sin(data->right_phase) * data->amplitude; /* right */
+    *(out++) = data->left_out;
+    *(out++) = data->right_out;
 
-      data->left_phase += M_PI_2 * data->frequency * SAMPLE_RATE_INVERSE;
-      if (data->left_phase >= M_PI_2) data->left_phase -= M_PI_2;
-      data->right_phase += M_PI_2 * (data->frequency + data->phase_offset) * SAMPLE_RATE_INVERSE;
-      if (data->right_phase >= M_PI_2) data->right_phase -= M_PI_2;
-    }
-    else if (data->type == SQUARE)
-    {
-      *(out++) = sin(data->left_phase >= 0) ? 1.0f * data->amplitude : -1.0f * data->amplitude;
-      *(out++) = sin(data->right_phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
-
-      data->left_phase += M_PI_2 * data->frequency * SAMPLE_RATE_INVERSE;
-      if (data->left_phase >= M_PI_2) data->left_phase -= M_PI_2;
-      data->right_phase += M_PI_2 * (data->frequency + data->phase_offset) * SAMPLE_RATE_INVERSE;
-      if (data->right_phase >= M_PI_2) data->right_phase -= M_PI_2;
-
-    }
-    else if (data->type == SAWTOOTH)
-    {
-      *(out++) = data->left_phase * data->amplitude; /* left */
-      *(out++) = data->right_phase * data->amplitude; /* right */
-
-      data->left_phase += data->frequency * SAMPLE_RATE_INVERSE;
-      if (data->left_phase >= 1.0f) data->left_phase -= 2.0f;
-      data->right_phase += (data->frequency + data->phase_offset) * SAMPLE_RATE_INVERSE;
-      if (data->right_phase >= 1.0f) data->right_phase -= 2.0f;
-    }
-    
-    //printf("%f\n", *out);
+    oscillator(data);
   }
 
   return paContinue;
@@ -164,7 +101,7 @@ int main(int argc, char** argv)
   int user_device;
   int num_devices;
   int default_displayed;
-  wave_data data;
+  wave data;
 
   /* initialize PortAudio */
   error = Pa_Initialize();
@@ -290,11 +227,11 @@ int main(int argc, char** argv)
   error = Pa_StartStream(stream);
   paCheckError(error);
 
-  notesInit(440.0f, 51); 
+  notesInit(); 
 
   /* initialize wave_data */
   data.type = SINE;
-  data.frequency = notes[48]; /* C4 index 48*/
+  data.frequency = getNote(69); /* A4 index 69*/
   data.amplitude = 0.1f;
   data.left_phase = 0.0f;
   data.right_phase = 0.0f;
@@ -306,7 +243,8 @@ int main(int argc, char** argv)
   while (1)
   {
     midi_data midi_data = getMidiData();
-    data.frequency = notes[midi_data.note];
+    data.frequency = getNote(midi_data.note + 3);
+    data.amplitude = velocityToAmplitude(midi_data.velocity);
 
     Pa_Sleep(PA_SLEEP_DURATION);
   }

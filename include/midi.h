@@ -19,5 +19,6 @@ typedef struct
 void *midiThread();
 int midiInit();
 midi_data getMidiData();
+double velocityToAmplitude(int velocity);
 
 #endif
