@@ -57,19 +57,29 @@ static int paCallback(const void *input_buffer, void *output_buffer,
                       void *user_data )
 {
   /* create variables with set types */
-  wave *data = (wave*) user_data;
-  float *out = (float*) output_buffer;
+  //voice **head = (voice**) user_data;
+  //float *out = (float*) output_buffer;
   (void) time_info; /* Prevent unused variable warning */
   (void) status_flags;
   (void) input_buffer;
     
   for(unsigned int i = 0; i < frames_per_buffer; i++)
-  {
-    *(out++) = data->left_out;
-    *(out++) = data->right_out;
+  { 
+    /*if ((*head) == NULL) continue;
+    
+    double sample = 0.0f;
 
-    oscillator(data);
-  }
+    while ((*head) != NULL)
+    {
+      oscillator((*head));
+      sample += (*head)->left_out;
+      head = &((*head)->next);
+    }
+
+    (*out++) = (double) sample / 2;
+    (*out++) = (double) sample / 2;
+    printf("%f\n", sample/2);
+  */} 
 
   return paContinue;
 }
@@ -101,7 +111,7 @@ int main(int argc, char** argv)
   int user_device;
   int num_devices;
   int default_displayed;
-  wave data;
+  voice *voice_head = NULL;
 
   /* initialize PortAudio */
   error = Pa_Initialize();
@@ -220,7 +230,7 @@ int main(int argc, char** argv)
                         FRAMES_PER_BUFFER,
                         paNoFlag, /* can define dither, clip settings or other */
                         paCallback,
-                        &data); /* pointer to be passed to callback function */
+                        &voice_head); /* pointer to be passed to callback function */
 
   paCheckError(error);
 
@@ -228,24 +238,21 @@ int main(int argc, char** argv)
   paCheckError(error);
 
   notesInit(); 
-
-  /* initialize wave_data */
-  data.type = SINE;
-  data.frequency = getNote(69); /* A4 index 69*/
-  data.amplitude = 0.1f;
-  data.left_phase = 0.0f;
-  data.right_phase = 0.0f;
-  data.phase_offset = 0.0f;
-
   midiInit();
+
+  addVoice(&voice_head, SINE, getNote(69), velocityToAmplitude(50));
+  addVoice(&voice_head, SINE, getNote(60), velocityToAmplitude(50));
 
   /* start of program loop */
   while (1)
   {
     midi_data midi_data = getMidiData();
-    data.frequency = getNote(midi_data.note + 3);
-    data.amplitude = velocityToAmplitude(midi_data.velocity);
 
+    if (midi_data.note_status == 1)
+    {
+      addVoice(&voice_head, SINE, getNote(midi_data.note + 3), velocityToAmplitude(midi_data.velocity));
+    }
+    
     Pa_Sleep(PA_SLEEP_DURATION);
   }
 
