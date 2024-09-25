@@ -1,16 +1,19 @@
 #ifndef OSCILLATOR_H
 #define OSCILLATOR_H
 
+/* i am going to do something crazy because i feel like it
+ * instead of looping through an array and seeing which waves are active
+ * i am going to create a linked list of active waves then find the average
+ * of all the waves to output to speakers */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "globals.h"
 #include <math.h>
 
-#define MAX_WAVES 128
-
 enum wave_type { SINE, SQUARE, SAWTOOTH };
 
-typedef struct voice
+typedef struct wave
 {
   enum wave_type type;
   double phase;
@@ -19,12 +22,16 @@ typedef struct voice
   double left_out;
   double right_out;
 
-  struct voice *next;
-} voice;
+  struct wave *next;
+} wave;
 
-void oscillator(voice *data);
-void addVoice(voice **head, enum wave_type type, const float frequency, const float amplitude);
-void removeVoice(voice **head, const float frequency);
-int getVoicesSize(voice **head);
+void oscillator(wave *data);
+void addWave(wave **head, enum wave_type type, const float frequency, const float amplitude);
+void removeWave(wave **head, const float frequency);
+int waveListSize(wave **head);
+
+/* returns the frequency of an input note 
+ * the base note is A4 which is note 69 on midi */
+double frequency(const int note);
 
 #endif

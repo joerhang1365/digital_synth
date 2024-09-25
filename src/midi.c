@@ -14,7 +14,7 @@
 
 #define MAX_VELOCITY_INVERSE (double) 1.0f / 127
 
-static midi_data data;
+static midi data;
 static unsigned int seqfd;          /* sequencer file descriptor */
 static unsigned int is_loop;
 static pthread_t midi_in_thread;    /* thread blocker for midi input */
@@ -25,9 +25,9 @@ int midiInit(void)
   int status;
   char midi_path[20];
 
-  // get midi device
+  /* print all devices in /dev so the user can see and enter the path */
   system("ls /dev");
-  printf("list of devices at /dev\n");
+  printf("(list of devices at /dev)\n");
   printf("enter midi device path (ex: /dev/midi1):\n");
   status = scanf("%s\n", midi_path);
   if (status != 1)
@@ -51,6 +51,13 @@ int midiInit(void)
     return 1;
   }
 
+  // do not know why I added this in the first place but it breaks everything
+  //status = pthread_join(midi_in_thread, NULL);
+  //if (status)
+  //{
+  //  printf("ERROR: unable to join MIDI input thread\n");
+  //  return 1;
+  //}
   is_loop = 1;
 
   return 0;
@@ -60,14 +67,7 @@ void *midiThread()
 {
   int status;
 
-  status = pthread_join(midi_in_thread, NULL);
-  if (status)
-  {
-    printf("ERROR: unable to join MIDI input thread\n");
-    //return 0;
-  }
-
-  // now just wait around for MIDI bytes to arrive and print them to screen
+  /* wait around for MIDI bytes to arrive and print them to screen */
   while (is_loop)
   {
     status = read(seqfd, &inbytes, sizeof(inbytes));
@@ -94,12 +94,12 @@ void *midiThread()
   return 0;
 }
 
-midi_data getMidiData()
+midi midiData()
 {
   return data;
 }
 
-double velocityToAmplitude(int velocity)
+double amplitude(const int velocity)
 {
   return velocity * MAX_VELOCITY_INVERSE;
 }

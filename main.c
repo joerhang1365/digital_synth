@@ -5,7 +5,6 @@
 #include "portaudio.h"
 #include "globals.h"
 #include "oscillator.h"
-#include "notes.h"
 #include "midi.h"
 
 #define PA_SLEEP_DURATION FRAMES_PER_BUFFER * SAMPLE_RATE_INVERSE * 1000
@@ -57,29 +56,36 @@ static int paCallback(const void *input_buffer, void *output_buffer,
                       void *user_data )
 {
   /* create variables with set types */
-  //voice **head = (voice**) user_data;
-  //float *out = (float*) output_buffer;
+  wave **head = (wave**) user_data;
+  float *out = (float*) output_buffer;
   (void) time_info; /* Prevent unused variable warning */
   (void) status_flags;
   (void) input_buffer;
     
   for(unsigned int i = 0; i < frames_per_buffer; i++)
   { 
-    /*if ((*head) == NULL) continue;
+    if ((*head) == NULL) break;
     
+    wave *current = *head;
     double sample = 0.0f;
 
-    while ((*head) != NULL)
+    /* get the sum of all the waves */
+    while (current != NULL)
     {
-      oscillator((*head));
-      sample += (*head)->left_out;
-      head = &((*head)->next);
+      oscillator(current);
+
+      // printf("wave frequency: %f\n", current->frequency);
+
+      sample += current->left_out;
+      current = current->next;
     }
 
-    (*out++) = (double) sample / 2;
-    (*out++) = (double) sample / 2;
-    printf("%f\n", sample/2);
-  */} 
+    /* normalize wave [0, 1] */
+    sample = sample / waveListSize(head);
+
+    (*out++) = sample; /*left out */
+    (*out++) = sample; /* right out */
+  } 
 
   return paContinue;
 }
@@ -111,7 +117,7 @@ int main(int argc, char** argv)
   int user_device;
   int num_devices;
   int default_displayed;
-  voice *voice_head = NULL;
+  wave *wave_head = NULL;
 
   /* initialize PortAudio */
   error = Pa_Initialize();
@@ -230,27 +236,31 @@ int main(int argc, char** argv)
                         FRAMES_PER_BUFFER,
                         paNoFlag, /* can define dither, clip settings or other */
                         paCallback,
-                        &voice_head); /* pointer to be passed to callback function */
+                        &wave_head); /* pointer to be passed to callback function */
 
   paCheckError(error);
 
   error = Pa_StartStream(stream);
   paCheckError(error);
 
-  notesInit(); 
-  midiInit();
+  check = midiInit();
+  if (check == 1) 
+    endProgram(EXIT_FAILURE);
 
-  addVoice(&voice_head, SINE, getNote(69), velocityToAmplitude(50));
-  addVoice(&voice_head, SINE, getNote(60), velocityToAmplitude(50));
+  //addWave(&wave_head, SINE, getFrequency(69), getAmplitude(50));
+  //addWave(&wave_head, SINE, getFrequency(60), getAmplitude(50));
 
   /* start of program loop */
+
+  midi midi;
+
   while (1)
   {
-    midi_data midi_data = getMidiData();
+    midi = midiData();
 
-    if (midi_data.note_status == 1)
+    if (midi.note_status == 1)
     {
-      addVoice(&voice_head, SINE, getNote(midi_data.note + 3), velocityToAmplitude(midi_data.velocity));
+      addWave(&wave_head, SINE, frequency(midi.note), amplitude(midi.velocity));
     }
     
     Pa_Sleep(PA_SLEEP_DURATION);

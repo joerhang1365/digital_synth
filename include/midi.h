@@ -14,11 +14,11 @@ typedef struct
   unsigned char note_status;
   unsigned int note;
   unsigned int velocity;
-} midi_data;
+} midi;
 
 void *midiThread();
 int midiInit();
-midi_data getMidiData();
-double velocityToAmplitude(int velocity);
+midi midiData();
+double amplitude(const int velocity);
 
 #endif

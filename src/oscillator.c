@@ -1,22 +1,22 @@
 #include "oscillator.h"
 
-void oscillator(voice *data)
+void oscillator(wave *data)
 {
   if (data->type == SINE)
   {
     data->left_out = sin(data->phase) * data->amplitude; /* left */
     data->right_out = sin(data->phase) * data->amplitude; /* right */
 
-    data->phase += M_PI_2 * data->frequency * SAMPLE_RATE_INVERSE;
-    if (data->phase >= M_PI_2) data->phase -= M_PI_2;
+    data->phase += M_PI2 * data->frequency * SAMPLE_RATE_INVERSE;
+    if (data->phase >= M_PI2) data->phase -= M_PI2;
   }
   else if (data->type == SQUARE)
   {
-    data->left_out = sin(data->phase >= 0) ? 1.0f * data->amplitude : -1.0f * data->amplitude;
+    data->left_out = sin(data->phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
     data->right_out = sin(data->phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
 
-    data->phase += M_PI_2 * data->frequency * SAMPLE_RATE_INVERSE;
-    if (data->phase >= M_PI_2) data->phase -= M_PI_2;
+    data->phase += M_PI2 * data->frequency * SAMPLE_RATE_INVERSE;
+    if (data->phase >= M_PI2) data->phase -= M_PI2;
   }
   else if (data->type == SAWTOOTH)
   {
@@ -29,22 +29,24 @@ void oscillator(voice *data)
   //printf("%f\n", *out);
 }
 
-/* adds voice to tail of linked list
- */
-void addVoice(voice **head, 
+/* adds wave to tail of linked list */
+void addWave(wave **head, 
                enum wave_type type, 
                const float frequency, 
                const float amplitude)
 {
+  /* travel through linked list to tail & 
+   * check if frequency already exists */
   while (*head != NULL)
   {
+    if ((*head)->frequency == frequency) return;
     head = &((*head)->next);
   }
 
-  voice *temp = (voice*)malloc(sizeof(voice));
+  wave *temp = (wave*)malloc(sizeof(wave));
   if (temp == NULL)
   {
-    printf("ERROR: allocating memory to new voice\n");
+    printf("ERROR: cannot allocate memory to new voice\n");
     return;
   }
 
@@ -52,16 +54,16 @@ void addVoice(voice **head,
   temp->frequency = frequency;
   temp->amplitude = amplitude;
   temp->phase = 0.0f;
+  temp->next = NULL;
 
   *head = temp;
 }
 
-void removeVoice(voice **head, const float frequency)
+void removeWave(wave **head, const float frequency)
 {
-  voice *previous;
-  voice *current;
+  wave *previous = NULL;
+  wave *current = *head;
 
-  current = *head;
   while (current != NULL)
   {
     if (current->frequency == frequency) break;
@@ -84,7 +86,7 @@ void removeVoice(voice **head, const float frequency)
   free (current);
 }
 
-int getVoicesSize(voice **head)
+int waveListSize(wave **head)
 {
   int count = 0;
   while (*head != NULL)
@@ -94,4 +96,9 @@ int getVoicesSize(voice **head)
   }
 
   return count;
+}
+
+double frequency(const int note)
+{
+  return 440.0F * pow(2.0f, (note - 69) / 12.0f);
 }
