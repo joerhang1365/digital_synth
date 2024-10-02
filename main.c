@@ -56,7 +56,7 @@ static int paCallback(const void *input_buffer, void *output_buffer,
                       void *user_data )
 {
   /* create variables with set types */
-  wave **head = (wave**) user_data;
+  (void) user_data;
   float *out = (float*) output_buffer;
   (void) time_info; /* Prevent unused variable warning */
   (void) status_flags;
@@ -64,27 +64,13 @@ static int paCallback(const void *input_buffer, void *output_buffer,
     
   for(unsigned int i = 0; i < frames_per_buffer; i++)
   { 
-    if ((*head) == NULL) break;
-    
-    wave *current = *head;
-    double sample = 0.0f;
+    double left_out = 0.0f;
+    double right_out = 0.0f;
 
-    /* get the sum of all the waves */
-    while (current != NULL)
-    {
-      oscillator(current);
+    oscillator(&left_out, &right_out);
 
-      // printf("wave frequency: %f\n", current->frequency);
-
-      sample += current->left_out;
-      current = current->next;
-    }
-
-    /* normalize wave [0, 1] */
-    sample = sample / waveListSize(head);
-
-    (*out++) = sample; /*left out */
-    (*out++) = sample; /* right out */
+    (*out++) = left_out; /*left out */
+    (*out++) = right_out; /* right out */
   } 
 
   return paContinue;
@@ -92,8 +78,8 @@ static int paCallback(const void *input_buffer, void *output_buffer,
 
 static void endProgram(const int type)
 {
+  destroyAllWaves();
   Pa_Terminate();
-
   exit(type);
 }
 
@@ -117,7 +103,6 @@ int main(int argc, char** argv)
   int user_device;
   int num_devices;
   int default_displayed;
-  wave *wave_head = NULL;
 
   /* initialize PortAudio */
   error = Pa_Initialize();
@@ -236,7 +221,7 @@ int main(int argc, char** argv)
                         FRAMES_PER_BUFFER,
                         paNoFlag, /* can define dither, clip settings or other */
                         paCallback,
-                        &wave_head); /* pointer to be passed to callback function */
+                        NULL); /* pointer to be passed to callback function */
 
   paCheckError(error);
 
@@ -260,7 +245,11 @@ int main(int argc, char** argv)
 
     if (midi.note_status == 1)
     {
-      addWave(&wave_head, SINE, frequency(midi.note), amplitude(midi.velocity));
+      createWave(SINE, frequency(midi.note), amplitude(midi.velocity));
+    }
+    else if (midi.note_status == 0)
+    {
+      destroyWave(frequency(midi.note));
     }
     
     Pa_Sleep(PA_SLEEP_DURATION);

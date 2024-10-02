@@ -25,10 +25,11 @@ typedef struct wave
   struct wave *next;
 } wave;
 
-void oscillator(wave *data);
-void addWave(wave **head, enum wave_type type, const float frequency, const float amplitude);
-void removeWave(wave **head, const float frequency);
-int waveListSize(wave **head);
+void oscillator(double *left_out, double *right_out);
+void createWave(enum wave_type type, const float frequency, const float amplitude);
+void destroyWave(const float frequency);
+void destroyAllWaves();
+int waveListSize();
 
 /* returns the frequency of an input note 
  * the base note is A4 which is note 69 on midi */

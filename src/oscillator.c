@@ -1,52 +1,96 @@
 #include "oscillator.h"
 
-void oscillator(wave *data)
+static wave *head = NULL;
+
+void oscillator(double *left_out, double *right_out)
 {
-  if (data->type == SINE)
-  {
-    data->left_out = sin(data->phase) * data->amplitude; /* left */
-    data->right_out = sin(data->phase) * data->amplitude; /* right */
+  // check if head is not NULL cuz it will fuck itself
+  if (head == NULL) return;
 
-    data->phase += M_PI2 * data->frequency * SAMPLE_RATE_INVERSE;
-    if (data->phase >= M_PI2) data->phase -= M_PI2;
+  wave *current = head;
+  double sample = 0.0f;
+  const int listSize = waveListSize();
+  //printf("%d\n", listSize);
+
+  /* get the sum of all the waves */
+  while (current != NULL)
+  {
+    //printf("%f\n", current->frequency);
+    if (current->type == SINE)
+    {
+      current->left_out = sin(current->phase) * current->amplitude; /* left */
+      current->right_out = sin(current->phase) * current->amplitude; /* right */
+
+      current->phase += M_PI2 * current->frequency * SAMPLE_RATE_INVERSE;
+      if (current->phase >= M_PI2) current->phase -= M_PI2;
+    }
+    else if (current->type == SQUARE)
+    {
+      current->left_out = sin(current->phase) >= 0 ? 1.0f * current->amplitude : -1.0f * current->amplitude;
+      current->right_out = sin(current->phase) >= 0 ? 1.0f * current->amplitude : -1.0f * current->amplitude;
+
+      current->phase += M_PI2 * current->frequency * SAMPLE_RATE_INVERSE;
+      if (current->phase >= M_PI2) current->phase -= M_PI2;
+    }
+    else if (current->type == SAWTOOTH)
+    {
+      current->left_out = current->phase * current->amplitude; /* left */
+      current->right_out = current->phase * current->amplitude; /* right */
+
+      current->phase += current->frequency * SAMPLE_RATE_INVERSE;
+      if (current->phase >= 1.0f) current->phase -= 2.0f;
+    }
+
+    sample += current->left_out;
+    current = current->next;
   }
-  else if (data->type == SQUARE)
-  {
-    data->left_out = sin(data->phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
-    data->right_out = sin(data->phase) >= 0 ? 1.0f * data->amplitude : -1.0f * data->amplitude;
 
-    data->phase += M_PI2 * data->frequency * SAMPLE_RATE_INVERSE;
-    if (data->phase >= M_PI2) data->phase -= M_PI2;
-  }
-  else if (data->type == SAWTOOTH)
-  {
-    data->left_out = data->phase * data->amplitude; /* left */
-    data->right_out = data->phase * data->amplitude; /* right */
+  /* normalize wave [0, 1] */
+  if (listSize > 0) sample = (double) sample / listSize;
+  else sample = 0.0f;
 
-    data->phase += data->frequency * SAMPLE_RATE_INVERSE;
-    if (data->phase >= 1.0f) data->phase -= 2.0f;
-  }  
-  //printf("%f\n", *out);
+  *left_out = sample;
+  *right_out = sample;
 }
 
 /* adds wave to tail of linked list */
-void addWave(wave **head, 
-               enum wave_type type, 
+void createWave(enum wave_type type, 
                const float frequency, 
                const float amplitude)
 {
-  /* travel through linked list to tail & 
-   * check if frequency already exists */
-  while (*head != NULL)
+  /* check if dumbass list is empty */
+  if (head == NULL)
   {
-    if ((*head)->frequency == frequency) return;
-    head = &((*head)->next);
+    head = (wave*)malloc(sizeof(wave));
+    if (head == NULL)
+    {
+      printf("ERROR: cannot allocate memory to new wave\n");
+      return;
+    }
+
+    head->type = type;
+    head->frequency = frequency;
+    head->amplitude = amplitude;
+    head->phase = 0.0f;
+    head->next = NULL;
+    return;
   }
+
+  /* if the head is not empty travel through linked list to tail & 
+   * check if frequency already exists */\
+  wave *current = head;
+  while (current->next != NULL)
+  { 
+    if (current->frequency == frequency) return;
+    current = current->next;
+  }
+
+  if (current->frequency == frequency) return;
 
   wave *temp = (wave*)malloc(sizeof(wave));
   if (temp == NULL)
   {
-    printf("ERROR: cannot allocate memory to new voice\n");
+    printf("ERROR: cannot allocate memory to new wave\n");
     return;
   }
 
@@ -54,15 +98,15 @@ void addWave(wave **head,
   temp->frequency = frequency;
   temp->amplitude = amplitude;
   temp->phase = 0.0f;
-  temp->next = NULL;
+  temp->next = NULL; 
 
-  *head = temp;
+  current->next = temp;
 }
 
-void removeWave(wave **head, const float frequency)
+void destroyWave(const float frequency)
 {
   wave *previous = NULL;
-  wave *current = *head;
+  wave *current = head;
 
   while (current != NULL)
   {
@@ -74,9 +118,9 @@ void removeWave(wave **head, const float frequency)
 
   if (current == NULL) return;
 
-  if (current == *head)
+  if (current == head)
   {
-    *head = current->next;
+    head = current->next;
   }
   else 
   {
@@ -86,13 +130,26 @@ void removeWave(wave **head, const float frequency)
   free (current);
 }
 
-int waveListSize(wave **head)
+void destroyAllWaves()
 {
+  wave *temp;
+
+  while (head != NULL)
+  {
+    temp = head->next;
+    free(head);
+    head = temp;
+  }
+}
+
+int waveListSize()
+{
+  wave *current = head;
   int count = 0;
-  while (*head != NULL)
+  while (current != NULL)
   {
     count++;
-    head = &((*head)->next);
+    current = current->next;
   }
 
   return count;
