@@ -16,6 +16,7 @@ void oscillator(double *left_out, double *right_out)
   while (current != NULL)
   {
     //printf("%f\n", current->frequency);
+    /* sinusodial wave */
     if (current->type == SINE)
     {
       current->left_out = sin(current->phase) * current->amplitude; /* left */
@@ -24,6 +25,7 @@ void oscillator(double *left_out, double *right_out)
       current->phase += M_PI2 * current->frequency * SAMPLE_RATE_INVERSE;
       if (current->phase >= M_PI2) current->phase -= M_PI2;
     }
+    /* square wave */
     else if (current->type == SQUARE)
     {
       current->left_out = sin(current->phase) >= 0 ? 1.0f * current->amplitude : -1.0f * current->amplitude;
@@ -32,6 +34,7 @@ void oscillator(double *left_out, double *right_out)
       current->phase += M_PI2 * current->frequency * SAMPLE_RATE_INVERSE;
       if (current->phase >= M_PI2) current->phase -= M_PI2;
     }
+    /* sawtooth wave */
     else if (current->type == SAWTOOTH)
     {
       current->left_out = current->phase * current->amplitude; /* left */
@@ -49,6 +52,7 @@ void oscillator(double *left_out, double *right_out)
   if (listSize > 0) sample = (double) sample / listSize;
   else sample = 0.0f;
 
+  /* set outputs */
   *left_out = sample;
   *right_out = sample;
 }
@@ -58,7 +62,7 @@ void createWave(enum wave_type type,
                const float frequency, 
                const float amplitude)
 {
-  /* check if dumbass list is empty */
+  /* check if list is empty */
   if (head == NULL)
   {
     head = (wave*)malloc(sizeof(wave));
@@ -77,7 +81,7 @@ void createWave(enum wave_type type,
   }
 
   /* if the head is not empty travel through linked list to tail & 
-   * check if frequency already exists */\
+   * check if frequency already exists */
   wave *current = head;
   while (current->next != NULL)
   { 
@@ -128,6 +132,7 @@ void destroyWave(const float frequency)
   }
 
   free (current);
+  current = NULL;
 }
 
 void destroyAllWaves()

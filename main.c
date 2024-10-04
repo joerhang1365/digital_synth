@@ -109,7 +109,7 @@ int main(int argc, char** argv)
   paCheckError(error);
 
   /* print PortAudio version */
-  printf("PortAudio version: 0x%08X\n", Pa_GetVersion());
+  printf("[ PortAudio version: 0x%08X ]\n", Pa_GetVersion());
   printf("version text: '%s'\n", Pa_GetVersionInfo()->versionText);
 
   /* find audio device */
@@ -120,7 +120,7 @@ int main(int argc, char** argv)
     error = num_devices;
     paCheckError(error);
   }
-  printf("number of devices: %d\n", num_devices);
+  printf("[ number of devices: %d ]\n", num_devices);
 
   for (int i = 0; i < num_devices; i++)
   {
@@ -163,17 +163,17 @@ int main(int argc, char** argv)
     printf("default sample rate           = %8.2f\n", device_info->defaultSampleRate);
   }
 
-  printf("select a device: ");
+  printf("[ select a device ]: ");
   int check = scanf("%d", &user_device);
 
   if (check != 1)
   {
-    printf("incorrect device input\n");
+    printf("ERROR: incorrect device input\n");
     endProgram(EXIT_SUCCESS);
   }
   else if (user_device > num_devices || user_device < 0)
   {
-    printf("selected device does not exist\n");
+    printf("ERROR: selected device does not exist\n");
     endProgram(EXIT_SUCCESS);
   }
 
@@ -242,10 +242,12 @@ int main(int argc, char** argv)
   while (1)
   {
     midi = midiData();
+    //printf("status %d\n", midi.note_status);
+    //printf("note %d\n", midi.note);
 
     if (midi.note_status == 1)
     {
-      createWave(SINE, frequency(midi.note), amplitude(midi.velocity));
+      createWave(SQUARE, frequency(midi.note), amplitude(midi.velocity));
     }
     else if (midi.note_status == 0)
     {

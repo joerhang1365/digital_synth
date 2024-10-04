@@ -27,9 +27,9 @@ int midiInit(void)
 
   /* print all devices in /dev so the user can see and enter the path */
   system("ls /dev");
-  printf("(list of devices at /dev)\n");
-  printf("enter midi device path (ex: /dev/midi1):\n");
-  status = scanf("%s\n", midi_path);
+  printf("[ list of devices at \"/dev\" ]\n");
+  printf("[ enter midi device path EX: \"/dev/midi1\" ]:");
+  status = scanf("%s", midi_path);
   if (status != 1)
   {
     printf("ERROR: invalid input for midi device path\n");
@@ -74,11 +74,17 @@ void *midiThread()
     if (status <= 0) continue; // no bytes being sent go back to top
 
     // note off
-    if (inbytes[0] >= 0x80 && inbytes[0] <= 0x8F)
+    /* for some reason note off and note on share the same HEX code so
+     * need to check if note is already on to turn it off 
+     * I guess some keyboards use the same hex value but just say velocity is 0
+     * so I will check that too*/
+    if ((inbytes[0] >= 0x80 && inbytes[0] <= 0x8F) || 
+        (inbytes[0] >= 0x90 && inbytes[0] <= 0x9F && inbytes[2] == 0)) 
     {
       data.note_status = 0;
       data.note = inbytes[1];
       data.velocity = inbytes[2];
+      //printf("bytes: %d %d %d\n", inbytes[0], inbytes[1], inbytes[2]);
     }
     // note on
     else if (inbytes[0] >= 0x90 && inbytes[0] <= 0x9F)
@@ -86,9 +92,12 @@ void *midiThread()
       data.note_status = 1;
       data.note = inbytes[1];
       data.velocity = inbytes[2];
+      //printf("bytes: %d %d %d\n", inbytes[0], inbytes[1], inbytes[2]);
 
       if (data.velocity != 0) printf("note: %d  velocity: %d\n", inbytes[1], inbytes[2]);
-    } 
+    }
+
+    //printf("bytes: %d %d %d\n", inbytes[0], inbytes[1], inbytes[2]);
   }
 
   return 0;
